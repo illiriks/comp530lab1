@@ -9,7 +9,6 @@
 // Assume no input line will be longer than 1024 bytes
 #define MAX_INPUT 1024
 
-
 bool is_empty(char s[]) {
 	int k=0;
 	while (s[k] != '\0') {
@@ -66,8 +65,7 @@ char ** parse(char * string) {
 	return returnme;
 }
 
-int 
-main (int argc, char ** argv, char **envp) {
+int main (int argc, char ** argv, char **envp) {
   int finished = 0;
   char *prompt = "thsh> ";
   char cmd[MAX_INPUT];
@@ -83,8 +81,6 @@ main (int argc, char ** argv, char **envp) {
     char last_char;
     int rv;
     int count;
-
-
     // Print the prompt
 		write(1, "[", 2);
 		// print cwd in prompt
@@ -94,16 +90,11 @@ main (int argc, char ** argv, char **envp) {
     if (!rv) { 
       finished = 1;
       break;
-    }
-    
+    } 
     // read and parse the input
-    for(rv = 1, count = 0, 
-	  cursor = cmd, last_char = 1;
-	rv 
-	  && (++count < (MAX_INPUT-1))
-	  && (last_char != '\n');
-	cursor++) { 
-
+    for(rv = 1, count = 0, cursor = cmd, last_char = 1;
+				rv && (++count < (MAX_INPUT-1)) && (last_char != '\n');
+				cursor++) { 
       rv = read(0, cursor, 1);
       last_char = *cursor;
     } 
@@ -123,13 +114,12 @@ main (int argc, char ** argv, char **envp) {
 				// 'cd -' and 'cd' ALONE DO NOT WORK
 				chdir(parsed_command[1]);
 			else if (strcmp(parsed_command[0], "set") == 0){
-				//TODO: FIX THIS
-				printf("%d\n", putenv(parsed_command[1]));
+				char * variable = strtok(parsed_command[1], "=");
+				char * value = strtok(0, "=");
+				setenv(variable, value, 1);
 			}
 			else execute(parsed_command, debug);
 		}
-
   }
-
   return 0;
 }

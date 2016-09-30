@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <sys/stat.h> 
+#include <fcntl.h>
 // Assume no input line will be longer than 1024 bytes
 #define MAX_INPUT 1024
 
@@ -78,6 +80,18 @@ int main (int argc, char ** argv, char **envp) {
 	if ((argc > 1) && (strcmp(argv[1], "-d") == 0)){
 			debug = true;
 	}
+	if ((argc > 1) && (access(argv[1], F_OK) != -1)){
+		int pid = fork();
+		if (pid == 0){
+			// child
+			int input = open(argv[1], O_RDONLY);
+			dup2(input, 0);
+			char ** args;
+			execl("thsh", "thsh");
+		} else {
+			exit(3);
+		}
+	}
 	// main loop
   while (!finished) {
     char *cursor;
@@ -100,7 +114,8 @@ int main (int argc, char ** argv, char **envp) {
 				cursor++) { 
       rv = read(0, cursor, 1);
       last_char = *cursor;
-    } 
+    }
+	 // TODO: Handle EOF like a newline. This will finish script support.	
 	 	*(cursor-1) = '\0';
 		// if read fails
     if (!rv) { 
@@ -108,7 +123,7 @@ int main (int argc, char ** argv, char **envp) {
       break;
     }
 		// put builtin commands here
-		if (!is_empty(cmd)){
+		if (!is_empty(cmd) && (cmd[0] != '#')){
 			char ** parsed_command = parse(cmd);
 			if (strcmp(parsed_command[0], "exit") == 0)
 				exit(3);

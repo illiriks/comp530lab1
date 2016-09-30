@@ -123,32 +123,32 @@ int main (int argc, char ** argv, char **envp) {
       break;
     }
 		// put builtin commands here
-		if (!is_empty(cmd) && (cmd[0] != '#')){
+		if (!is_empty(cmd) && (cmd[0] != '#')) {
 			char ** parsed_command = parse(cmd);
-			if (strcmp(parsed_command[0], "exit") == 0)
+			if (strcmp(parsed_command[0], "exit") == 0) {
 				exit(3);
-			else if (strcmp(parsed_command[0], "cd") == 0)
-			char * current_dir; char * prev_dir;
-			// no argument to "cd" goes to home directory
-			if (!parsed_command[1]) {
-				prev_dir = getcwd(NULL, 0);
-				chdir(getenv("HOME"));
-				current_dir = getcwd(NULL, 0);
-			} else if (strcmp(parsed_command[1], "~") == 0) {
-				prev_dir = getcwd(NULL, 0);
-				chdir(getenv("HOME"));
-				current_dir = getcwd(NULL, 0);
-			} else if (strcmp(parsed_command[1], "-") == 0) {
-				current_dir = getcwd(NULL, 0);
-				chdir(prev_dir);
-				prev_dir = current_dir;
-				current_dir = getcwd(NULL, 0);
-			} else {
-				prev_dir = getcwd(NULL, 0);
-				chdir(parsed_command[1]);
-				current_dir = getcwd(NULL, 0);
-			}
-			else if (strcmp(parsed_command[0], "set") == 0){
+			} else if (strcmp(parsed_command[0], "cd") == 0) {
+				char * current_dir; char * prev_dir;
+				// no argument to "cd" goes to home directory
+				if (!parsed_command[1]) {
+					prev_dir = getcwd(NULL, 0);
+					chdir(getenv("HOME"));
+					current_dir = getcwd(NULL, 0);
+				} else if (strcmp(parsed_command[1], "~") == 0) {
+					prev_dir = getcwd(NULL, 0);
+					chdir(getenv("HOME"));
+					current_dir = getcwd(NULL, 0);
+				} else if (strcmp(parsed_command[1], "-") == 0) {
+					current_dir = getcwd(NULL, 0);
+					chdir(prev_dir);
+					prev_dir = current_dir;
+					current_dir = getcwd(NULL, 0);
+				} else {
+					prev_dir = getcwd(NULL, 0);
+					chdir(parsed_command[1]);
+					current_dir = getcwd(NULL, 0);
+				}
+			} else if (strcmp(parsed_command[0], "set") == 0){
 				char * variable = strtok(parsed_command[1], "=");
 				char * value = strtok(0, "=");
 				setenv(variable, value, 1);

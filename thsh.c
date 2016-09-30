@@ -39,6 +39,9 @@ void execute(char ** argv, bool debug){
 		if (debug){
 			printf("ENDED: %s (ret=%d)\n", argv[0], status);
 		}
+		char errorcode[4];
+		sprintf(errorcode, "%d", status);
+		setenv("?", errorcode, 1);
 	}
 }
 

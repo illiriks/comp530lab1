@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <sys/stat.h> 
+#include <sys/stat.h>
 #include <fcntl.h>
 // Assume no input line will be longer than 1024 bytes
 #define MAX_INPUT 1024
@@ -35,7 +35,7 @@ void execute(char ** argv, bool debug){
 		if (debug){
 			printf("RUNNING: %s\n", argv[0]);
 		}
-		// Parent process should 'sleep' while child isn't done 
+		// Parent process should 'sleep' while child isn't done
 		while (wait(&status) != pid);
 		// Child is done here
 		if (debug){
@@ -52,7 +52,7 @@ char ** parse(char * string) {
 	// I don't know how to allocate 2d string arrays in C
 	// but this works
 	// although my laptop has 16GB RAM so it's OK
-	char** returnme= malloc(1000000); 
+	char** returnme= malloc(1000000);
   int current = 0;
 	const char s[2] = " ";
 	char *token;
@@ -62,7 +62,7 @@ char ** parse(char * string) {
 	while (token != NULL ) {
 		// add the token to the array and move forward
 		if (token[0] == '$')
-			token = getenv(token+1);			
+			token = getenv(token+1);
 		returnme[current] = token;
 		token = strtok(NULL, s);
 		current ++;
@@ -104,21 +104,21 @@ int main (int argc, char ** argv, char **envp) {
     write(1, getcwd(cwd, sizeof(cwd)), strlen(getcwd(cwd, sizeof(cwd))));
 		write(1, "] ", 3);
 		rv = write(1, prompt, strlen(prompt));
-    if (!rv) { 
+    if (!rv) {
       finished = 1;
       break;
-    } 
+    }
     // read and parse the input
     for(rv = 1, count = 0, cursor = cmd, last_char = 1;
 				rv && (++count < (MAX_INPUT-1)) && (last_char != '\n');
-				cursor++) { 
+				cursor++) {
       rv = read(0, cursor, 1);
       last_char = *cursor;
     }
-	 // TODO: Handle EOF like a newline. This will finish script support.	
+	 // TODO: Handle EOF like a newline. This will finish script support.
 	 	*(cursor-1) = '\0';
 		// if read fails
-    if (!rv) { 
+    if (!rv) {
       finished = 1;
       break;
     }
@@ -128,9 +128,26 @@ int main (int argc, char ** argv, char **envp) {
 			if (strcmp(parsed_command[0], "exit") == 0)
 				exit(3);
 			else if (strcmp(parsed_command[0], "cd") == 0)
-				// THIS ONLY WORKS IF A PATH IS SPECIFIED
-				// 'cd -' and 'cd' ALONE DO NOT WORK
+			char * current_dir; char * prev_dir;
+			// no argument to "cd" goes to home directory
+			if (!parsed_command[1]) {
+				prev_dir = getcwd(NULL, 0);
+				chdir(getenv("HOME"));
+				current_dir = getcwd(NULL, 0);
+			} else if (strcmp(parsed_command[1], "~") == 0) {
+				prev_dir = getcwd(NULL, 0);
+				chdir(getenv("HOME"));
+				current_dir = getcwd(NULL, 0);
+			} else if (strcmp(parsed_command[1], "-") == 0) {
+				current_dir = getcwd(NULL, 0);
+				chdir(prev_dir);
+				prev_dir = current_dir;
+				current_dir = getcwd(NULL, 0);
+			} else {
+				prev_dir = getcwd(NULL, 0);
 				chdir(parsed_command[1]);
+				current_dir = getcwd(NULL, 0);
+			}
 			else if (strcmp(parsed_command[0], "set") == 0){
 				char * variable = strtok(parsed_command[1], "=");
 				char * value = strtok(0, "=");

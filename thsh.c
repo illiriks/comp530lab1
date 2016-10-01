@@ -48,8 +48,7 @@ int countPipes(char * string){
 }
 
 //Executes a command. Program is in argv[0], args are in argv.
-void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in_handle, int out_handle){
-	prev_dir = getcwd(NULL, 0);
+void execute(char * cmd, bool debug, char * current_dir, char * prev_dir, int in_handle, int out_handle){
 	char** argv = malloc(80000);
   int current = 0;
 	const char s[2] = " ";
@@ -70,22 +69,22 @@ void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in
 	} else if (strcmp(argv[0], "cd") == 0) {
 		// no argument to "cd" goes to home directory
 		if (!argv[1]) {
-			prev_dir = getcwd(NULL, 0);
+			strcpy(prev_dir, getcwd(NULL, 0));
 			chdir(getenv("HOME"));
-			current_dir = getcwd(NULL, 0);
+			strcpy(current_dir, getcwd(NULL, 0));
 		} else if (strcmp(argv[1], "~") == 0) {
-			prev_dir = getcwd(NULL, 0);
+			strcpy(prev_dir, getcwd(NULL, 0));
 			chdir(getenv("HOME"));
-			current_dir = getcwd(NULL, 0);
+			strcpy(current_dir, getcwd(NULL, 0));
 		} else if (strcmp(argv[1], "-") == 0) {
-			current_dir = getcwd(NULL, 0);
+			strcpy(current_dir, getcwd(NULL, 0));
 			chdir(prev_dir);
-			prev_dir = current_dir;
-			current_dir = getcwd(NULL, 0);
+			strcpy(prev_dir, current_dir);
+			strcpy(current_dir, getcwd(NULL, 0));
 		} else {
-			prev_dir = getcwd(NULL, 0);
+			strcpy(prev_dir, getcwd(NULL, 0));
 			chdir(argv[1]);
-			current_dir = getcwd(NULL, 0);
+			strcpy(current_dir, getcwd(NULL, 0));
 			if (strcmp(prev_dir, current_dir) == 0) {
 				printf("Could not find directory \'%s\'\n", argv[1]);
 			}
@@ -149,7 +148,7 @@ void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in
 	}
 }
 
-void parse(char * cmd, bool debug, char current_dir[], char prev_dir[]) {
+void parse(char * cmd, bool debug, char * current_dir, char * prev_dir) {
 	// int current = 0; 	// unused
 	int k;
 	int numPipes = countPipes(cmd);
@@ -177,8 +176,9 @@ void parse(char * cmd, bool debug, char current_dir[], char prev_dir[]) {
 }
 
 int main (int argc, char ** argv, char **envp) {
-	char * current_dir; char * prev_dir;
-  int finished = 0;
+	char * current_dir = getcwd(NULL, 0);
+	char * prev_dir = getcwd(NULL, 0);
+	int finished = 0;
   char *prompt = "thsh> ";
   char cmd[MAX_INPUT];
 	char cwd[1024];

@@ -1,4 +1,20 @@
-/* COMP 530: Tar Heel SHell */
+/* COMP 530: Tar Heel SHell
+
+* Name: Welsey Hitson
+* UNC Honor Pledge: I certify that no unauthorized assistance has been received or given
+* in the completion of this work.
+* Signature: Wesley Hitson
+* Collaborators: Illirik Smirnov
+
+* Name:
+* UNC Honor Pledge: I certify that no unauthorized assistance has been received or given
+* in the completion of this work.
+* Signature:
+* Collaborators: Wesley Hitson
+
+* References: Linux man pages (http://man7.org/linux/man-pages/index.html), Donald Porter's slides,
+
+*/
 
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +24,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 // Assume no input line will be longer than 1024 bytes
 #define MAX_INPUT 1024
 
@@ -23,49 +40,24 @@ bool is_empty(char s[]) {
 int countPipes(char * string){
 	int pipes = 0;
 	const char *tmp = string;
-	while (tmp = strstr(tmp, "|")){
+	while ((tmp = strstr(tmp, "|"))){
 		pipes++;
 		tmp++;
 	}
 	return pipes;
 }
 
-
-void parse(char * cmd, bool debug, char current_dir[], char prev_dir[]){
-	int current = 0;
-	int numPipes = countPipes(cmd);	
-	char pipeString[2] = "|";
-	int pipes[numPipes][2];
-	for (int k=0; k<numPipes; k++){
-		pipe(pipes[k]);
-	}
-	char * commands[numPipes + 1];
-	commands[0] = strtok(cmd, pipeString);
-	for (int k=1; k<=numPipes; k++){
-		commands[k] = strtok(NULL, pipeString);
-	}
-	for (int k=0; k<=numPipes; k++){
-		if ((k == 0) & (k == numPipes)){
-			execute(commands[k], debug, current_dir, prev_dir, 0, 0);
-		} else if (k == 0){
-			execute(commands[k], debug, current_dir, prev_dir, 0, pipes[0][1]);
-		} else if (k == numPipes){
-			execute(commands[k], debug, current_dir, prev_dir, pipes[k-1][0], 0);
-		} else {
-			execute(commands[k], debug, current_dir, prev_dir, pipes[k-1][0], pipes[k][1]);
-		}
-	}
-}
 //Executes a command. Program is in argv[0], args are in argv.
 void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in_handle, int out_handle){
-	char** argv = malloc(1000000);
+	prev_dir = getcwd(NULL, 0);
+	char** argv = malloc(80000);
   int current = 0;
 	const char s[2] = " ";
 	char *token;
 	token = strtok(cmd, s);
 	// in case of empty string
 	// while there is more string to tokenize,
-	while (token != NULL ) {
+	while (token != NULL) {
 		// add the token to the array and move forward
 		if (token[0] == '$')
 			token = getenv(token+1);
@@ -94,11 +86,29 @@ void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in
 			prev_dir = getcwd(NULL, 0);
 			chdir(argv[1]);
 			current_dir = getcwd(NULL, 0);
+			if (strcmp(prev_dir, current_dir) == 0) {
+				printf("Could not find directory \'%s\'\n", argv[1]);
+			}
 		}
 	} else if (strcmp(argv[0], "set") == 0){
 		char * variable = strtok(argv[1], "=");
 		char * value = strtok(0, "=");
 		setenv(variable, value, 1);
+	} else if (strcmp(argv[0], "goheels") == 0) {
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+		FILE *file;
+    file = fopen("goheels.txt", "r");
+    if (file == NULL) {
+        printf("File does not exist.\n");
+				exit(3);
+		}
+    while ((read = getline(&line, &len, file)) != -1) {
+        printf("%s", line);
+    }
+		free(line);
+    fclose(file);
 	} else {
 		int pid;
 		int status;
@@ -108,11 +118,12 @@ void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in
 			// Execute child
 			if (in_handle != 0){
 				dup2(in_handle, 0);
-			} 
+			}
 			if (out_handle != 0){
 				dup2(out_handle, 1);
 			}
 			if (execvp(*argv, argv) < 0){
+			  printf("Unrecognized command: \'%s\'\n", argv[0]);
 				exit(1);
 			}
 		} else {
@@ -121,7 +132,7 @@ void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in
 			}
 			if (in_handle != 0){
 				close(in_handle);
-			} 
+			}
 			if (out_handle != 0){
 				close(out_handle);
 			}
@@ -138,6 +149,32 @@ void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in
 	}
 }
 
+void parse(char * cmd, bool debug, char current_dir[], char prev_dir[]) {
+	// int current = 0; 	// unused
+	int k;
+	int numPipes = countPipes(cmd);
+	char pipeString[2] = "|";
+	int pipes[numPipes][2];
+	for (k=0; k<numPipes; k++) {
+		pipe(pipes[k]);
+	}
+	char * commands[numPipes + 1];
+	commands[0] = strtok(cmd, pipeString);
+	for (k=1; k<=numPipes; k++) {
+		commands[k] = strtok(NULL, pipeString);
+	}
+	for (k=0; k<=numPipes; k++) {
+		if ((k == 0) & (k == numPipes)){
+			execute(commands[k], debug, current_dir, prev_dir, 0, 0);
+		} else if (k == 0) {
+			execute(commands[k], debug, current_dir, prev_dir, 0, pipes[0][1]);
+		} else if (k == numPipes){
+			execute(commands[k], debug, current_dir, prev_dir, pipes[k-1][0], 0);
+		} else {
+			execute(commands[k], debug, current_dir, prev_dir, pipes[k-1][0], pipes[k][1]);
+		}
+	}
+}
 
 int main (int argc, char ** argv, char **envp) {
 	char * current_dir; char * prev_dir;
@@ -156,8 +193,8 @@ int main (int argc, char ** argv, char **envp) {
 			// child
 			int input = open(argv[1], O_RDONLY);
 			dup2(input, 0);
-			char ** args;
-			execl("thsh", "thsh");
+			// char ** args;	// this line was throwing a warning during compile
+			execl("thsh", "thsh", NULL);
 		} else {
 			exit(3);
 		}

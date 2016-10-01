@@ -20,57 +20,127 @@ bool is_empty(char s[]) {
 	return true;
 }
 
-//Executes a command. Program is in argv[0], args are in argv.
-void execute(char ** argv, bool debug){
-	int pid;
-	int status;
-	// Fork process
-	pid = fork();
-	if (pid == 0) { // Child
-		// Execute child
-		if (execvp(*argv, argv) < 0){
-			exit(1);
-		}
-	} else {
-		if (debug){
-			printf("RUNNING: %s\n", argv[0]);
-		}
-		// Parent process should 'sleep' while child isn't done
-		while (wait(&status) != pid);
-		// Child is done here
-		if (debug){
-			printf("ENDED: %s (ret=%d)\n", argv[0], status);
-		}
-		char errorcode[4];
-		sprintf(errorcode, "%d", status);
-		setenv("?", errorcode, 1);
+int countPipes(char * string){
+	int pipes = 0;
+	const char *tmp = string;
+	while (tmp = strstr(tmp, "|")){
+		pipes++;
+		tmp++;
 	}
+	return pipes;
 }
 
-// Converts a string to an array of strings, tokenized
-char ** parse(char * string) {
-	// I don't know how to allocate 2d string arrays in C
-	// but this works
-	// although my laptop has 16GB RAM so it's OK
-	char** returnme= malloc(1000000);
+
+void parse(char * cmd, bool debug, char current_dir[], char prev_dir[]){
+	int current = 0;
+	int numPipes = countPipes(cmd);	
+	char pipeString[2] = "|";
+	int pipes[numPipes][2];
+	for (int k=0; k<numPipes; k++){
+		pipe(pipes[k]);
+	}
+	char * commands[numPipes + 1];
+	commands[0] = strtok(cmd, pipeString);
+	for (int k=1; k<=numPipes; k++){
+		commands[k] = strtok(NULL, pipeString);
+	}
+	for (int k=0; k<=numPipes; k++){
+		if ((k == 0) & (k == numPipes)){
+			execute(commands[k], debug, current_dir, prev_dir, 0, 0);
+		} else if (k == 0){
+			execute(commands[k], debug, current_dir, prev_dir, 0, pipes[0][1]);
+		} else if (k == numPipes){
+			execute(commands[k], debug, current_dir, prev_dir, pipes[k-1][0], 0);
+		} else {
+			execute(commands[k], debug, current_dir, prev_dir, pipes[k-1][0], pipes[k][1]);
+		}
+	}
+}
+//Executes a command. Program is in argv[0], args are in argv.
+void execute(char * cmd, bool debug, char current_dir[], char prev_dir[], int in_handle, int out_handle){
+	char** argv = malloc(1000000);
   int current = 0;
 	const char s[2] = " ";
 	char *token;
-	token = strtok(string, s);
+	token = strtok(cmd, s);
 	// in case of empty string
 	// while there is more string to tokenize,
 	while (token != NULL ) {
 		// add the token to the array and move forward
 		if (token[0] == '$')
 			token = getenv(token+1);
-		returnme[current] = token;
+		argv[current] = token;
 		token = strtok(NULL, s);
 		current ++;
 	}
-	return returnme;
+	if (strcmp(argv[0], "exit") == 0) {
+		exit(3);
+	} else if (strcmp(argv[0], "cd") == 0) {
+		// no argument to "cd" goes to home directory
+		if (!argv[1]) {
+			prev_dir = getcwd(NULL, 0);
+			chdir(getenv("HOME"));
+			current_dir = getcwd(NULL, 0);
+		} else if (strcmp(argv[1], "~") == 0) {
+			prev_dir = getcwd(NULL, 0);
+			chdir(getenv("HOME"));
+			current_dir = getcwd(NULL, 0);
+		} else if (strcmp(argv[1], "-") == 0) {
+			current_dir = getcwd(NULL, 0);
+			chdir(prev_dir);
+			prev_dir = current_dir;
+			current_dir = getcwd(NULL, 0);
+		} else {
+			prev_dir = getcwd(NULL, 0);
+			chdir(argv[1]);
+			current_dir = getcwd(NULL, 0);
+		}
+	} else if (strcmp(argv[0], "set") == 0){
+		char * variable = strtok(argv[1], "=");
+		char * value = strtok(0, "=");
+		setenv(variable, value, 1);
+	} else {
+		int pid;
+		int status;
+		// Fork process
+		pid = fork();
+		if (pid == 0) { // Child
+			// Execute child
+			if (in_handle != 0){
+				dup2(in_handle, 0);
+			} 
+			if (out_handle != 0){
+				dup2(out_handle, 1);
+			}
+			if (execvp(*argv, argv) < 0){
+				exit(1);
+			}
+		} else {
+			if (debug){
+				printf("RUNNING: %s\n", argv[0]);
+			}
+			if (in_handle != 0){
+				close(in_handle);
+			} 
+			if (out_handle != 0){
+				close(out_handle);
+			}
+			// Parent process should 'sleep' while child isn't done
+			while (wait(&status) != pid);
+			// Child is done here
+			if (debug){
+				printf("ENDED: %s (ret=%d)\n", argv[0], status);
+			}
+			char errorcode[4];
+			sprintf(errorcode, "%d", status);
+			setenv("?", errorcode, 1);
+		}
+	}
 }
 
+
 int main (int argc, char ** argv, char **envp) {
+	char * current_dir; char * prev_dir;
   int finished = 0;
   char *prompt = "thsh> ";
   char cmd[MAX_INPUT];
@@ -122,38 +192,9 @@ int main (int argc, char ** argv, char **envp) {
       finished = 1;
       break;
     }
-		// put builtin commands here
+		// then execute the command
 		if (!is_empty(cmd) && (cmd[0] != '#')) {
-			char ** parsed_command = parse(cmd);
-			if (strcmp(parsed_command[0], "exit") == 0) {
-				exit(3);
-			} else if (strcmp(parsed_command[0], "cd") == 0) {
-				char * current_dir; char * prev_dir;
-				// no argument to "cd" goes to home directory
-				if (!parsed_command[1]) {
-					prev_dir = getcwd(NULL, 0);
-					chdir(getenv("HOME"));
-					current_dir = getcwd(NULL, 0);
-				} else if (strcmp(parsed_command[1], "~") == 0) {
-					prev_dir = getcwd(NULL, 0);
-					chdir(getenv("HOME"));
-					current_dir = getcwd(NULL, 0);
-				} else if (strcmp(parsed_command[1], "-") == 0) {
-					current_dir = getcwd(NULL, 0);
-					chdir(prev_dir);
-					prev_dir = current_dir;
-					current_dir = getcwd(NULL, 0);
-				} else {
-					prev_dir = getcwd(NULL, 0);
-					chdir(parsed_command[1]);
-					current_dir = getcwd(NULL, 0);
-				}
-			} else if (strcmp(parsed_command[0], "set") == 0){
-				char * variable = strtok(parsed_command[1], "=");
-				char * value = strtok(0, "=");
-				setenv(variable, value, 1);
-			}
-			else execute(parsed_command, debug);
+			parse(cmd, debug, current_dir, prev_dir);
 		}
   }
   return 0;

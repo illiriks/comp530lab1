@@ -28,6 +28,27 @@
 // Assume no input line will be longer than 1024 bytes
 #define MAX_INPUT 1024
 
+// Because I spent all summer writing Node, I saw the easiest solution to the
+// problem of parsing arrows that might not have spaces around them as
+// "find and replace arrow with " > "!
+// As it turns out, this is nontrivial in C :(
+char * replace_substring(char *string, char *find, char *replace){
+	char temporary[MAX_INPUT * 8];
+	char buffer[MAX_INPUT * 8];
+	char *pointer;
+	// put the original string in the temp buffer
+	strcpy(temporary, string);
+	// is the substring in the string?
+	if(!(pointer = strstr(temporary, find))){
+		return string; //nope? return a copy of the original string
+	}
+	strncpy(buffer, temporary, pointer - temporary); //copy bytes till substring
+	buffer[pointer-temporary] = '\0'; // null terminate the buffer
+	sprintf(buffer + (pointer - temporary), "%s%s", replace, pointer+strlen(find));
+	sprintf(string , "%s", buffer);
+	return string;
+}
+
 bool is_empty(char s[]) {
 	int k=0;
 	while (s[k] != '\0') {
@@ -48,12 +69,18 @@ int countPipes(char * string){
 }
 
 //Executes a command. Program is in argv[0], args are in argv.
-void execute(char * cmd, bool debug, char * current_dir, char * prev_dir, int in_handle, int out_handle){
+void execute(char * cmd, bool debug, char * current_dir, char * prev_dir, int in_h, int out_h){
+	int in_handle = in_h;
+	int out_handle = out_h;
+	// find any arrows and add spaces
+	cmd = replace_substring(cmd, "<", " < ");
+	cmd = replace_substring(cmd, ">", " > ");
 	char** argv = malloc(80000);
   int current = 0;
 	const char s[2] = " ";
 	char *token;
 	token = strtok(cmd, s);
+
 	// in case of empty string
 	// while there is more string to tokenize,
 	while (token != NULL) {
@@ -63,6 +90,22 @@ void execute(char * cmd, bool debug, char * current_dir, char * prev_dir, int in
 		argv[current] = token;
 		token = strtok(NULL, s);
 		current ++;
+	}
+	int final = current - 1;
+	if (final > 3 && (strcmp(argv[final-3], "<") == 0) && (strcmp(argv[final-1], ">") == 0)){
+		in_handle = open(argv[final-2], O_RDONLY | O_CREAT, S_IREAD);
+		out_handle = open(argv[final], O_WRONLY | O_CREAT, S_IREAD | S_IWRITE);
+		argv[final-3] = NULL; 
+	} else if (final > 3 && (strcmp(argv[final-3], ">") == 0) && (strcmp(argv[final-1], "<") == 0)){
+		in_handle = open(argv[final], O_RDONLY | O_CREAT, S_IREAD);
+		out_handle = open(argv[final-2], O_WRONLY, S_IWRITE);
+		argv[final-3] = NULL; 
+	} else if (final > 1 && (strcmp(argv[final-1], ">") == 0)){
+		out_handle = open(argv[final], O_WRONLY | O_CREAT, S_IWRITE | S_IREAD);
+		argv[final-1] = NULL;
+	} else if (final > 1 && (strcmp(argv[final-1], "<") == 0)){
+		in_handle = open(argv[final], O_RDONLY | O_CREAT, S_IREAD);
+		argv[final-1] = NULL; 
 	}
 	if (strcmp(argv[0], "exit") == 0) {
 		exit(3);

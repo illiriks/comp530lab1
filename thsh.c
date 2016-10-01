@@ -80,7 +80,6 @@ void execute(char * cmd, bool debug, char * current_dir, char * prev_dir, int in
 	const char s[2] = " ";
 	char *token;
 	token = strtok(cmd, s);
-
 	// in case of empty string
 	// while there is more string to tokenize,
 	while (token != NULL) {
@@ -226,6 +225,7 @@ int main (int argc, char ** argv, char **envp) {
   char cmd[MAX_INPUT];
 	char cwd[1024];
 	bool debug = false;
+	bool quiet = false;
 	// if the -d argument is passed, run this code in debug mode
 	if ((argc > 1) && (strcmp(argv[1], "-d") == 0)){
 			debug = true;
@@ -237,10 +237,13 @@ int main (int argc, char ** argv, char **envp) {
 			int input = open(argv[1], O_RDONLY);
 			dup2(input, 0);
 			// char ** args;	// this line was throwing a warning during compile
-			execl("thsh", "thsh", NULL);
+			execl("thsh", "thsh", "-q", NULL);
 		} else {
 			exit(3);
 		}
+	}
+	if ((argc > 1) && (strcmp(argv[1], "-q") == 0)){
+		quiet = true; // Don't output a prompt
 	}
 	// main loop
   while (!finished) {
@@ -248,24 +251,27 @@ int main (int argc, char ** argv, char **envp) {
     char last_char;
     int rv;
     int count;
-    // Print the prompt
-		write(1, "[", 2);
-		// print cwd in prompt
-    write(1, getcwd(cwd, sizeof(cwd)), strlen(getcwd(cwd, sizeof(cwd))));
-		write(1, "] ", 3);
-		rv = write(1, prompt, strlen(prompt));
-    if (!rv) {
-      finished = 1;
-      break;
-    }
+		if (!quiet){ // print prompt if interactive
+			// Print the prompt
+			write(1, "[", 2);
+			// print cwd in prompt
+	   write(1, getcwd(cwd, sizeof(cwd)), strlen(getcwd(cwd, sizeof(cwd))));
+			write(1, "] ", 3);
+			rv = write(1, prompt, strlen(prompt));
+	    if (!rv) {
+	     finished = 1;
+	     break;
+		  }
+		}
     // read and parse the input
     for(rv = 1, count = 0, cursor = cmd, last_char = 1;
 				rv && (++count < (MAX_INPUT-1)) && (last_char != '\n');
 				cursor++) {
       rv = read(0, cursor, 1);
       last_char = *cursor;
-    }
-	 // TODO: Handle EOF like a newline. This will finish script support.
+			if (last_char == EOF)
+				exit(3);
+		}
 	 	*(cursor-1) = '\0';
 		// if read fails
     if (!rv) {
